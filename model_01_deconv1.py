@@ -419,8 +419,6 @@ if __name__ == '__main__':
     velodynes_path.sort()
     calibs_path.sort()
 
-    print "a1"
-
     # for index, value in enumerate(velodynes_path):
     #     pcd_path = velodynes_path[index]
     #     calibs_path = calibs_path[index]

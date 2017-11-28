@@ -266,7 +266,6 @@ def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resol
         corners = cordinate[index].reshape(-1, 8, 3) + centers[:, np.newaxis]
         print corners.shape
         print voxel.shape
-        # publish_pc2(pc, corners.reshape(-1, 3))
         publish_pc2(pc, corners.reshape(-1, 3))
         # pred_corners = corners + pred_center
         # print pred_corners
@@ -309,6 +308,8 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
         print y_pred.shape, y_pred.max(), y_pred.min()
 
         index = np.where(y_pred >= 0.995)
+
+        print ("index:" + str(index))
         print np.vstack((index[0], np.vstack((index[1], index[2])))).transpose()
         print np.vstack((index[0], np.vstack((index[1], index[2])))).transpose().shape
 
@@ -316,9 +317,9 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
         centers = sphere_to_center(centers, resolution=resolution, \
             scale=scale, min_value=np.array([x[0], y[0], z[0]]))
         corners = cordinate[index].reshape(-1, 8, 3) + centers[:, np.newaxis]
+        print("corners:" + str(corners))
         print corners.shape
         print voxel.shape
-        # publish_pc2(pc, corners.reshape(-1, 3))
         publish_pc2(pc, corners.reshape(-1, 3))
         # pred_corners = corners + pred_center
         # print pred_corners
@@ -398,7 +399,7 @@ if __name__ == '__main__':
     # train_test(1, pcd_path, label_path=label_path, resolution=0.1, calib_path=calib_path, dataformat="bin", is_velo_cam=True, \
     #         scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
 
-    pcd_path = "/home/katou01/download/testing/velodyne/002397.bin"
-    calib_path = "/home/katou01/download/testing/calib/002397.txt"
+    pcd_path = "/home/administrator/rosbag/testing/velodyne/002397.bin"
+    calib_path = "/home/administrator/rosbag/testing/calib/002397.txt"
     test(1, pcd_path, label_path=None, resolution=0.1, calib_path=calib_path, dataformat="bin", is_velo_cam=True, \
             scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))

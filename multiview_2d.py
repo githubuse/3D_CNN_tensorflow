@@ -85,7 +85,7 @@ if __name__ == "__main__":
     # process(bin_path, xml_path, dataformat="bin", label_type="xml")
 
 
-    pcd_path = "/home/katou01/download/training/velodyne/005080.bin"
-    label_path = "/home/katou01/download/training/label_2/005080.txt"
-    calib_path = "/home/katou01/download/training/calib/005080.txt"
+    pcd_path = "/home/administrator/rosbag/training/velodyne/005080.bin"
+    label_path = "/home/administrator/rosbag/training/label_2/005080.txt"
+    calib_path = "/home/administrator/rosbag/training/calib/005080.txt"
     process(pcd_path, label_path, calib_path=calib_path, dataformat="bin", is_velo_cam=True)

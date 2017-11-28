@@ -1,22 +1,19 @@
 #!/usr/bin/env python
 import sys
 import os
-import rospy
 import numpy as np
 import cv2
-import pcl
+# import pcl
 import glob
 import math
-import std_msgs.msg
-import sensor_msgs.point_cloud2 as pc2
-from sensor_msgs.msg import PointCloud2
 from parse_xml import parseXML
 
+ENABLE_ROS = True
 
-def load_pc_from_pcd(pcd_path):
-    """Load PointCloud data from pcd file."""
-    p = pcl.load(pcd_path)
-    return np.array(list(p), dtype=np.float32)
+# def load_pc_from_pcd(pcd_path):
+#     """Load PointCloud data from pcd file."""
+#     p = pcl.load(pcd_path)
+#     return np.array(list(p), dtype=np.float32)
 
 def load_pc_from_bin(bin_path):
     """Load PointCloud data from pcd file."""
@@ -25,7 +22,7 @@ def load_pc_from_bin(bin_path):
 
 def read_label_from_txt(label_path):
     """Read label from txt file."""
-    text = np.fromfile(label_path)
+    # text = np.fromfile(label_path)
     bounding_box = []
     with open(label_path, "r") as f:
         labels = f.read().split("\n")
@@ -42,6 +39,28 @@ def read_label_from_txt(label_path):
     if bounding_box:
         data = np.array(bounding_box, dtype=np.float32)
         return data[:, 3:6], data[:, :3], data[:, 6]
+    else:
+        return None, None, None
+
+def read_label_from_apollo(label_path):
+    """Read label from txt file."""
+    # text = np.fromfile(label_path)
+    bounding_box = []
+    with open(label_path, "r") as f:
+        labels = f.read().split("\n")
+        for label in labels:
+            if not label:
+                continue
+            label = label.split(" ")
+            if (label[0] == "dontCare"):
+                continue
+
+            if label[0] == ("vehicle"):# or "cyclist" or "pedestrian"): #  or "Truck"
+                bounding_box.append(label[1:8])
+
+    if bounding_box:
+        data = np.array(bounding_box, dtype=np.float32)
+        return data[:, 3], data[:, 3:6], data[:, 6]
     else:
         return None, None, None
 
@@ -151,25 +170,81 @@ def get_boxcorners(places, rotates, size):
     return np.array(corners)
 
 def publish_pc2(pc, obj):
-    """Publisher of PointCloud data"""
-    pub = rospy.Publisher("/points_raw", PointCloud2, queue_size=1000000)
-    rospy.init_node("pc2_publisher")
-    header = std_msgs.msg.Header()
-    header.stamp = rospy.Time.now()
-    header.frame_id = "velodyne"
-    points = pc2.create_cloud_xyz32(header, pc[:, :3])
+    print("obj.shape:" + str(obj))
+    if ENABLE_ROS:
+        """Publisher of PointCloud data"""
+        pub = rospy.Publisher("/points_raw", PointCloud2, queue_size=1000000)
+        rospy.init_node("pc2_publisher")
+        header = std_msgs.msg.Header()
+        header.stamp = rospy.Time.now()
+        header.frame_id = "velodyne"
+        points = pc2.create_cloud_xyz32(header, pc[:, :3])
 
-    pub2 = rospy.Publisher("/points_raw1", PointCloud2, queue_size=1000000)
-    header = std_msgs.msg.Header()
-    header.stamp = rospy.Time.now()
-    header.frame_id = "velodyne"
-    points2 = pc2.create_cloud_xyz32(header, obj)
+        pub2 = rospy.Publisher("/points_raw1", PointCloud2, queue_size=1000000)
+        header = std_msgs.msg.Header()
+        header.stamp = rospy.Time.now()
+        header.frame_id = "velodyne"
+        points2 = pc2.create_cloud_xyz32(header, obj)
 
-    r = rospy.Rate(0.1)
-    while not rospy.is_shutdown():
+        r = rospy.Rate(0.1)
+        while not rospy.is_shutdown():
+            pub.publish(points)
+            pub2.publish(points2)
+            r.sleep()
+    else:
+        pass
+
+
+def publish_pc2_all(pc, obj):
+    print ("obj.shape:" + str(obj))
+    if ENABLE_ROS:
+        """Publisher of PointCloud data"""
+        pub = rospy.Publisher("/points_raw", PointCloud2, queue_size=1000000)
+        rospy.init_node("pc2_publisher")
+        header = std_msgs.msg.Header()
+        header.stamp = rospy.Time.now()
+        header.frame_id = "velodyne"
+        points = pc2.create_cloud_xyz32(header, pc[:, :3])
+
+        pub2 = rospy.Publisher("/points_raw1", PointCloud2, queue_size=1000000)
+        header = std_msgs.msg.Header()
+        header.stamp = rospy.Time.now()
+        header.frame_id = "velodyne"
+        points2 = pc2.create_cloud_xyz32(header, obj.reshape(-1, 3))
+        #print ("points2.shape:" + str(points2))
+        pub3 = rospy.Publisher("/points_cube", MarkerArray, queue_size=1000000)
+        markerArray = MarkerArray()
+        for index, pt in enumerate(obj):
+            marker = Marker()
+            marker.id = index
+            marker.header.frame_id = "velodyne"
+            marker.type = marker.CUBE
+            marker.action = marker.ADD
+            pt_x = pt[:8,0]
+            pt_y = pt[:8,1]
+            pt_z = pt[:8,2]
+            marker.scale.x = pt_x.max() - pt_x.min()
+            marker.scale.y = pt_y.max() - pt_y.min()
+            marker.scale.z = pt_z.max() - pt_z.min()
+            marker.color.a = 0.3
+            marker.color.g = 1.0
+            marker.pose.orientation.w = 1.0
+            marker.pose.position.x = pt_x.mean()
+            marker.pose.position.y = pt_y.mean()
+            marker.pose.position.z = pt_z.mean()
+            markerArray.markers.append(marker)
+
         pub.publish(points)
         pub2.publish(points2)
-        r.sleep()
+        pub3.publish(markerArray)
+        # r = rospy.Rate(0.1)
+        # while not rospy.is_shutdown():
+        #     pub.publish(points)
+        #     pub2.publish(points2)
+        #     pub3.publish(markerArray)
+        #     r.sleep()
+    else:
+        pass
 
 def raw_to_voxel(pc, resolution=0.50, x=(0, 90), y=(-50, 50), z=(-4.5, 5.5)):
     """Convert PointCloud2 to Voxel"""
@@ -221,7 +296,19 @@ def read_labels(label_path, label_type, calib_path=None, is_velo_cam=False, proj
             places = dummy
         if is_velo_cam:
             places[:, 0] += 0.27
-
+    elif label_type == "apollo":
+        places, size, rotates = read_label_from_apollo(label_path)
+        if places is None:
+            return None, None, None
+        rotates = np.pi / 2 - rotates
+        # dummy = np.zeros_like(places)
+        dummy = places.copy()
+        if calib_path:
+            places = np.dot(dummy, proj_velo.transpose())[:, :3]
+        else:
+            places = dummy
+        if is_velo_cam:
+            places[:, 0] += 0.27
     elif label_type == "xml":
         bounding_boxes, size = read_label_from_xml(label_path)
         places = bounding_boxes[30]["place"]
@@ -282,8 +369,8 @@ def process(velodyne_path, label_path=None, calib_path=None, dataformat="pcd", l
 
     if dataformat == "bin":
         pc = load_pc_from_bin(velodyne_path)
-    elif dataformat == "pcd":
-        pc = load_pc_from_pcd(velodyne_path)
+    # elif dataformat == "pcd":
+    #     pc = load_pc_from_pcd(velodyne_path)
 
     if calib_path:
         calib = read_calib_file(calib_path)
@@ -313,6 +400,13 @@ def process(velodyne_path, label_path=None, calib_path=None, dataformat="pcd", l
     publish_pc2(pc, corners.reshape(-1, 3))
 
 if __name__ == "__main__":
+    if ENABLE_ROS:
+        import rospy
+        import std_msgs.msg
+        from visualization_msgs.msg import MarkerArray
+        from visualization_msgs.msg import Marker
+        import sensor_msgs.point_cloud2 as pc2
+        from sensor_msgs.msg import PointCloud2
     # pcd_path = "../data/training/velodyne/000012.pcd"
     # label_path = "../data/training/label_2/000012.txt"
     # calib_path = "../data/training/calib/000012.txt"
@@ -322,7 +416,12 @@ if __name__ == "__main__":
     # xml_path = "../data/2011_09_26/2011_09_26_drive_0001_sync/tracklet_labels.xml"
     # process(bin_path, xml_path, dataformat="bin", label_type="xml")
 
-    pcd_path = "/home/katou01/download/training/velodyne/000410.bin"
-    label_path = "/home/katou01/download/training/label_2/000410.txt"
-    calib_path = "/home/katou01/download/training/calib/000410.txt"
-    process(pcd_path, label_path, calib_path=calib_path, dataformat="bin", is_velo_cam=True)
+    base_path = "/home/administrator"
+    bin_path = base_path + "/lidar_cnn/trainsets/bin_files/002_00000000.bin"
+    label_path = base_path + "/lidar_cnn/trainsets/label_file/002_00000000.bin.txt"
+    process(bin_path, label_path, dataformat="apollo", is_velo_cam=False)
+
+    # pcd_path = "/home/administrator/rosbag/training/velodyne/000410.bin"
+    # label_path = "/home/administrator/rosbag/training/label_2/000410.txt"
+    # calib_path = "/home/administrator/rosbag/training/calib/000410.txt"
+    # process(pcd_path, label_path, calib_path=calib_path, dataformat="bin", is_velo_cam=True)

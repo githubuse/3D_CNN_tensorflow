@@ -394,9 +394,9 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
 
 
 if __name__ == '__main__':
-    pcd_path = "../data/training/velodyne/*.bin"
-    label_path = "../data/training/label_2/*.txt"
-    calib_path = "../data/training/calib/*.txt"
+    pcd_path = "/home/administrator/rosbag/training/velodyne/*.bin"
+    label_path = "/home/administrator/rosbag/training/label_2/*.txt"
+    calib_path = "/home/administrator/rosbag/training/calib/*.txt"
     train(5, pcd_path, label_path=label_path, resolution=0.25, calib_path=calib_path, dataformat="bin", is_velo_cam=True, \
             scale=4, voxel_shape=(360, 400, 40), x=(0, 90), y=(-50, 50), z=(-5.5, 4.5))
     # #

@@ -42,6 +42,28 @@ def read_label_from_txt(label_path):
     else:
         return None, None, None
 
+def read_label_from_apollo(label_path):
+    """Read label from txt file."""
+    text = np.fromfile(label_path)
+    bounding_box = []
+    with open(label_path, "r") as f:
+        labels = f.read().split("\n")
+        for label in labels:
+            if not label:
+                continue
+            label = label.split(" ")
+            if (label[0] == "DontCare"):
+                continue
+
+            if label[0] == ("vehicle" or "Van"): #  or "Truck"
+                bounding_box.append(label[8:15])
+
+    if bounding_box:
+        data = np.array(bounding_box, dtype=np.float32)
+        return data[:, 3:6], data[:, :3], data[:, 6]
+    else:
+        return None, None, None
+
 def read_label_from_xml(label_path):
     """Read label from xml file.
 
@@ -280,7 +302,8 @@ def read_labels(label_path, label_type, calib_path=None, is_velo_cam=False, proj
         places = bounding_boxes[30]["place"]
         rotates = bounding_boxes[30]["rotate"][:, 2]
         size = bounding_boxes[30]["size"]
-
+    elif label_path == "apollo":
+        places, size, rotates = read_label_from_txt(label_path)
     return places, rotates, size
 
 def create_label(places, size, corners, resolution=0.50, x=(0, 90), y=(-50, 50), z=(-4.5, 5.5), scale=4, min_value=np.array([0., -50., -4.5])):

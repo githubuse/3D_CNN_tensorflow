@@ -357,9 +357,9 @@ if __name__ == '__main__':
     # train(5, pcd_path, label_path=label_path, resolution=0.25, calib_path=calib_path, dataformat="bin", is_velo_cam=True, \
     #         scale=4, voxel_shape=(360, 400, 40), x=(0, 90), y=(-50, 50), z=(-5.5, 4.5))
     # #
-    pcd_path = "../data/training/velodyne/004000.bin"
-    label_path = "../data/training/label_2/004000.txt"
-    calib_path = "../data/training/calib/004000.txt"
+    pcd_path = "/home/administrator/rosbag/training/velodyne/004000.bin"
+    label_path = "/home/administrator/rosbag/training/label_2/004000.txt"
+    calib_path = "/home/administrator/rosbag/training/calib/004000.txt"
     test(1, pcd_path, label_path=label_path, resolution=0.25, calib_path=calib_path, dataformat="bin", is_velo_cam=True, \
             scale=4, voxel_shape=(360, 400, 40), x=(0, 90), y=(-50, 50), z=(-5.5, 4.5))
     # test(1, pcd_path, label_path=label_path, resolution=0.1, calib_path=calib_path, dataformat="bin", is_velo_cam=True, scale=8, voxel_shape=(800, 800, 40))
