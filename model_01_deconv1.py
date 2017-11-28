@@ -389,6 +389,7 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
 
 
 if __name__ == '__main__':
+#==========================================training
     # pcd_path = "../data/training/velodyne/*.bin"
     # label_path = "../data/training/label_2/*.txt"
     # calib_path = "../data/training/calib/*.txt"
@@ -404,25 +405,38 @@ if __name__ == '__main__':
     # train_test(1, pcd_path, label_path=label_path, resolution=0.1, calib_path=calib_path, dataformat="bin", is_velo_cam=True, \
     #         scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
 
+
+#==========================================test
     # pcd_path = "/home/xhpan/rosbag/testing/velodyne/002397.bin"
     # calib_path = "/home/xhpan/rosbag/testing/calib/002397.txt"
 
 
     #pcd_path = "/home/xhpan/rosbag/testing/velodyne/*.bin"
     #pcd_path = "/home/xhpan/rosbag/training/velodyne/*.bin"
-    pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
     # label_path = "/home/xhpan/rosbag/training/label_2/*.txt"
-    calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
 
-    velodynes_path = glob.glob(pcd_path)
-    calibs_path = glob.glob(calib_path)
+    # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
+    # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
+    #
+    # velodynes_path = glob.glob(pcd_path)
+    # calibs_path = glob.glob(calib_path)
+    # velodynes_path.sort()
+    # calibs_path.sort()
+    #
+    # test(1, velodynes_path, label_path=None, resolution=0.1, calib_path=calibs_path, dataformat="bin", is_velo_cam=True, \
+    #      scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
+
+    base_path = "/home/xhpan/project/lidar_cnn/src"
+    bin_path = base_path + "/lidar_cnn/src/trainsets/bin_one/*.bin"
+    label_path = base_path + "/lidar_cnn/src/trainsets/label_one/*.txt"
+
+    # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
+    # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
+
+    velodynes_path = glob.glob(bin_path)
     velodynes_path.sort()
-    calibs_path.sort()
 
-    # for index, value in enumerate(velodynes_path):
-    #     pcd_path = velodynes_path[index]
-    #     calibs_path = calibs_path[index]
-    test(1, velodynes_path, label_path=None, resolution=0.1, calib_path=calibs_path, dataformat="bin", is_velo_cam=True, \
+    test(1, velodynes_path, label_path=None, resolution=0.1, dataformat="bin", is_velo_cam=True, \
          scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
 
 

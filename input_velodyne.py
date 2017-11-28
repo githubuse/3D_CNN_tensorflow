@@ -10,6 +10,13 @@ from parse_xml import parseXML
 
 ENABLE_ROS = True
 
+if ENABLE_ROS:
+    import rospy
+    import std_msgs.msg
+    from visualization_msgs.msg import MarkerArray
+    from visualization_msgs.msg import Marker
+    import sensor_msgs.point_cloud2 as pc2
+    from sensor_msgs.msg import PointCloud2
 # def load_pc_from_pcd(pcd_path):
 #     """Load PointCloud data from pcd file."""
 #     p = pcl.load(pcd_path)
@@ -60,7 +67,9 @@ def read_label_from_apollo(label_path):
 
     if bounding_box:
         data = np.array(bounding_box, dtype=np.float32)
-        return data[:, 3], data[:, 3:6], data[:, 6]
+        size = data[:,3:6]
+        size [:,[0, 2]] = size[:,[2, 0]]#kiti:lwh apollo hwl
+        return data[:, :3], size, data[:, 6]
     else:
         return None, None, None
 
@@ -234,15 +243,15 @@ def publish_pc2_all(pc, obj):
             marker.pose.position.z = pt_z.mean()
             markerArray.markers.append(marker)
 
-        pub.publish(points)
-        pub2.publish(points2)
-        pub3.publish(markerArray)
-        # r = rospy.Rate(0.1)
-        # while not rospy.is_shutdown():
-        #     pub.publish(points)
-        #     pub2.publish(points2)
-        #     pub3.publish(markerArray)
-        #     r.sleep()
+        # pub.publish(points)
+        # pub2.publish(points2)
+        # pub3.publish(markerArray)
+        r = rospy.Rate(0.1)
+        while not rospy.is_shutdown():
+            pub.publish(points)
+            pub2.publish(points2)
+            pub3.publish(markerArray)
+            r.sleep()
     else:
         pass
 
@@ -288,6 +297,7 @@ def read_labels(label_path, label_type, calib_path=None, is_velo_cam=False, proj
         if places is None:
             return None, None, None
         rotates = np.pi / 2 - rotates
+        # rotates = rotates
         dummy = np.zeros_like(places)
         dummy = places.copy()
         if calib_path:
@@ -298,9 +308,13 @@ def read_labels(label_path, label_type, calib_path=None, is_velo_cam=False, proj
             places[:, 0] += 0.27
     elif label_type == "apollo":
         places, size, rotates = read_label_from_apollo(label_path)
+
+
         if places is None:
             return None, None, None
-        rotates = np.pi / 2 - rotates
+        places[:,2] -= 0.6# vehicle coordinate - Z
+        # rotates = np.pi / 2 - rotates
+        rotates = rotates
         # dummy = np.zeros_like(places)
         dummy = places.copy()
         if calib_path:
@@ -359,7 +373,7 @@ def create_objectness_label(sphere_center, resolution=0.5, x=90, y=100, z=10, sc
     return obj_maps
 
 def process(velodyne_path, label_path=None, calib_path=None, dataformat="pcd", label_type="txt", is_velo_cam=False):
-    p = []
+    # p = []
     pc = None
     bounding_boxes = None
     places = None
@@ -377,36 +391,31 @@ def process(velodyne_path, label_path=None, calib_path=None, dataformat="pcd", l
         proj_velo = proj_to_velo(calib)[:, :3]
 
     if label_path:
+        print ("label_type:" + label_type)
         places, rotates, size = read_labels(label_path, label_type, calib_path=calib_path, is_velo_cam=is_velo_cam, proj_velo=proj_velo)
 
+
+    print ("places" + str(places))
+    print ("rotates" + str(rotates))
+    print ("size" + str(size))
     corners = get_boxcorners(places, rotates, size)
-    print("################", len(pc))
-    pc = filter_camera_angle(pc)
+    print("point cloud shape(size):", pc.shape)
+    print ("corners" + str(corners))
+    # pc = filter_camera_angle(pc)
     # obj = []
     # obj = create_publish_obj(obj, places, rotates, size)
 
-    p.append((0, 0, 0))
-    p.append((0, 0, -1))
-    print pc.shape
-    print 1
+    # p.append((0, 0, 0))
+    # p.append((0, 0, -1))
     # publish_pc2(pc, obj)
-    a = center_to_sphere(places, size, resolution=0.25)
-    print places
-    print a
-    print sphere_to_center(a, resolution=0.25)
-    bbox = sphere_to_center(a, resolution=0.25)
-    print corners.shape
+    # a = center_to_sphere(places, size, resolution=0.25)
+    # print ("a" + str(a))
+    # bbox = sphere_to_center(a, resolution=0.25)
+    # print corners.shape
     # publish_pc2(pc, bbox.reshape(-1, 3))
     publish_pc2(pc, corners.reshape(-1, 3))
 
 if __name__ == "__main__":
-    if ENABLE_ROS:
-        import rospy
-        import std_msgs.msg
-        from visualization_msgs.msg import MarkerArray
-        from visualization_msgs.msg import Marker
-        import sensor_msgs.point_cloud2 as pc2
-        from sensor_msgs.msg import PointCloud2
     # pcd_path = "../data/training/velodyne/000012.pcd"
     # label_path = "../data/training/label_2/000012.txt"
     # calib_path = "../data/training/calib/000012.txt"
@@ -416,10 +425,10 @@ if __name__ == "__main__":
     # xml_path = "../data/2011_09_26/2011_09_26_drive_0001_sync/tracklet_labels.xml"
     # process(bin_path, xml_path, dataformat="bin", label_type="xml")
 
-    base_path = "/home/administrator"
-    bin_path = base_path + "/lidar_cnn/trainsets/bin_files/002_00000000.bin"
-    label_path = base_path + "/lidar_cnn/trainsets/label_file/002_00000000.bin.txt"
-    process(bin_path, label_path, dataformat="apollo", is_velo_cam=False)
+    base_path = "/home/xhpan/project/lidar_cnn/src"
+    bin_path = base_path + "/lidar_cnn/src/trainsets/bin_files/002_00000000.bin"
+    label_path = base_path + "/lidar_cnn/src/trainsets/label_file/002_00000000.bin.txt"
+    process(bin_path, label_path, dataformat="bin", label_type="apollo", is_velo_cam=False)
 
     # pcd_path = "/home/administrator/rosbag/training/velodyne/000410.bin"
     # label_path = "/home/administrator/rosbag/training/label_2/000410.txt"
