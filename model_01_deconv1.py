@@ -7,6 +7,9 @@ import glob
 import logging
 import os
 
+last_model = "./models/model.100.ckpt"
+result_log = "./logs/test.log"
+
 def batch_norm(inputs, phase_train, decay=0.9, eps=1e-5):
     """Batch Normalization
 
@@ -274,7 +277,6 @@ def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resol
         # print pred_corners
 
 def accurateLog(labelCenter, testCenter):
-    global result_log
     log_path = "./logs"
     if not os.path.exists(log_path):
         os.makedirs(log_path)
@@ -301,11 +303,9 @@ def accurateLog(labelCenter, testCenter):
     result_log_file.close()
     # logging.info("accurate :%f(%d/%d), error:%f(%d/%d)" % (accurate, match, len(labelCenter),
     #                                                 error,len(testCenter) - match, len(testCenter)))
-last_model = "./models/model.100.ckpt"
-result_log = "./logs/test.log"
+
 def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=0.2, dataformat="pcd", label_type="txt", is_velo_cam=False, \
              scale=4, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5)):
-    global last_model
     batch_size = batch_num
     p = []
     pc = None
@@ -466,7 +466,6 @@ if __name__ == '__main__':
     else:
         if len(sys.argv) > 3:
             isTraining = sys.argv[3]
-        global last_model, result_log
         if len(sys.argv) > 4:
             last_model = sys.argv[4] + ".ckpt"
         if len(sys.argv) > 5:
