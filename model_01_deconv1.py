@@ -4,6 +4,8 @@ import numpy as np
 import tensorflow as tf
 from input_velodyne import *
 import glob
+import logging
+import os
 
 def batch_norm(inputs, phase_train, decay=0.9, eps=1e-5):
     """Batch Normalization
@@ -186,9 +188,9 @@ def train(batch_num, velodyne_path, label_path=None, calib_path=None, resolution
                 print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(cc))
                 print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(iol))
                 print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(nol))
-            if (epoch != 0) and (epoch % 10 == 0):
+            if (epoch != 0) and (epoch % 20 == 0):
                 print "Save epoch " + str(epoch)
-                saver.save(sess, "velodyne_025_deconv_norm_valid" + str(epoch) + ".ckpt")
+                saver.save(sess, "./models/model." + str(epoch) + ".ckpt")
         print("Optimization Finished!")
 
 def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=0.2, dataformat="pcd", label_type="txt", is_velo_cam=False, \
@@ -215,8 +217,8 @@ def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resol
         places, rotates, size = read_labels(label_path, label_type, calib_path=calib_path, is_velo_cam=is_velo_cam, proj_velo=proj_velo)
 
     corners = get_boxcorners(places, rotates, size)
-    filter_car_data(corners)
-    pc = filter_camera_angle(pc)
+    # filter_car_data(corners)
+    # pc = filter_camera_angle(pc)
 
     voxel =  raw_to_voxel(pc, resolution=resolution, x=x, y=y, z=z)
     center_sphere = center_to_sphere(places, size, resolution=resolution)
@@ -230,8 +232,8 @@ def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resol
         is_training=None
         model, voxel, phase_train = ssd_model(sess, voxel_shape=voxel_shape, activation=tf.nn.relu, is_training=is_training)
         saver = tf.train.Saver()
-        new_saver = tf.train.import_meta_graph("velodyne_025_deconv_norm_valid40.ckpt.meta")
-        last_model = "./velodyne_025_deconv_norm_valid40.ckpt"
+        # new_saver = tf.train.import_meta_graph("velodyne_025_deconv_norm_valid40.ckpt.meta")
+        last_model = "./models/model.100.ckpt"
         saver.restore(sess, last_model)
 
         objectness = model.objectness
@@ -266,9 +268,35 @@ def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resol
         corners = cordinate[index].reshape(-1, 8, 3) + centers[:, np.newaxis]
         print corners.shape
         print voxel.shape
-        publish_pc2(pc, corners.reshape(-1, 3))
+        # publish_pc2(pc, corners.reshape(-1, 3))
+        # publish_pc2_all(pc, corners, centers, places)#.reshape(-1, 3))
         # pred_corners = corners + pred_center
         # print pred_corners
+
+def accurateLog(labelCenter, testCenter):
+    log_path = "./logs"
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+    log_file = open(log_path + "/logaccurate.log", "a")
+
+    match = 0
+    for test in testCenter:
+        bMatch = False
+        for label in labelCenter:
+            if similarBox(label, test):
+                bMatch = True
+                break
+        if bMatch:
+            match +=1
+    accurate = float(match) / len(labelCenter)
+    error = float(len(testCenter) - match) / len(testCenter)
+    logtext = "accurate :%f(%d/%d), error:%f(%d/%d)\n" % (accurate, match, len(labelCenter),
+                                                    error,len(testCenter) - match, len(testCenter))
+    print logtext
+    log_file.write(logtext)
+    log_file.close()
+    # logging.info("accurate :%f(%d/%d), error:%f(%d/%d)" % (accurate, match, len(labelCenter),
+    #                                                 error,len(testCenter) - match, len(testCenter)))
 
 def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=0.2, dataformat="pcd", label_type="txt", is_velo_cam=False, \
              scale=4, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5)):
@@ -281,6 +309,8 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
     size = None
     proj_velo = None
 
+    # logging.basicConfig(filename='./logs/logaccurate.log', level=logging.DEBUG)
+    label_corners = None
 
     with tf.Session() as sess:
         is_training=None
@@ -289,6 +319,7 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
         model, voxel, phase_train = ssd_model(sess, voxel_shape=voxel_shape, activation=tf.nn.relu, is_training=is_training)
         saver = tf.train.Saver()
         # new_saver = tf.train.import_meta_graph("velodyne_025_deconv_norm_valid40.ckpt.meta")
+        last_model = "./models/model.100.ckpt"
         last_model = "./velodyne_025_deconv_norm_valid40.ckpt"
         saver.restore(sess, last_model)
         objectness = model.objectness
@@ -297,6 +328,11 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
 
     	print velodyne_path
         for index, value in enumerate(velodyne_path):
+            if label_path:
+                places, rotates, size = read_labels(label_path[index], label_type, calib_path=calib_path,
+                                                    is_velo_cam=is_velo_cam, proj_velo=proj_velo)
+                # label_corners = get_boxcorners(places, rotates, size)
+
 
             if dataformat == "bin":
                 print velodynes_path[index]
@@ -312,20 +348,23 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
             cordinate1 = sess.run(cordinate, feed_dict={voxel: voxel_x})[0]
             y_pred1 = sess.run(y_pred, feed_dict={voxel: voxel_x})[0, :, :, :, 0]
             print objectness1.shape, objectness1.max(), objectness1.min()
-            print y_pred1.shape, y_pred1.max(), y_pred1.min()
+            print "y_pred1.shape:", y_pred1.shape, y_pred1.max(), y_pred1.min()
 
             index = np.where(y_pred1 >= 0.995)
-            print np.vstack((index[0], np.vstack((index[1], index[2])))).transpose()
-            print np.vstack((index[0], np.vstack((index[1], index[2])))).transpose().shape
-
+            print "index:" + str(index)
             centers = np.vstack((index[0], np.vstack((index[1], index[2])))).transpose()
+            print "centers.shape:" + str(centers.shape)
+            print "centers1:" + str(centers)
             centers = sphere_to_center(centers, resolution=resolution, \
                 scale=scale, min_value=np.array([x[0], y[0], z[0]]))
+
+            accurateLog(places, centers)
+            print "centers2:" + str(centers)
             corners = cordinate1[index].reshape(-1, 8, 3) + centers[:, np.newaxis]
-            print corners.shape
-            print voxel.shape
+            print "corners:" + str(corners)
+            print "corners.shape:" + str(corners.shape)
             # publish_pc2(pc, corners.reshape(-1, 3))
-            publish_pc2_all(pc, corners)#.reshape(-1, 3))
+            # publish_pc2_all(pc, corners, centers, places)#.reshape(-1, 3))
             # pred_corners = corners + pred_center
             # print pred_corners
 
@@ -333,10 +372,10 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
                         scale=4, x=(0, 80), y=(-40, 40), z=(-2.5, 1.5)):
     velodynes_path = glob.glob(velodyne_path)
     labels_path = glob.glob(label_path)
-    calibs_path = glob.glob(calib_path)
+    # calibs_path = glob.glob(calib_path)
     velodynes_path.sort()
     labels_path.sort()
-    calibs_path.sort()
+    # calibs_path.sort()
     iter_num = len(velodynes_path) // batch_num
 
     for itn in range(iter_num):
@@ -344,8 +383,8 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
         batch_g_map = []
         batch_g_cord = []
 
-        for velodynes, labels, calibs in zip(velodynes_path[itn*batch_num:(itn+1)*batch_num], \
-            labels_path[itn*batch_num:(itn+1)*batch_num], calibs_path[itn*batch_num:(itn+1)*batch_num]):
+        for velodynes, labels in zip(velodynes_path[itn*batch_num:(itn+1)*batch_num], \
+            labels_path[itn*batch_num:(itn+1)*batch_num]):
             p = []
             pc = None
             bounding_boxes = None
@@ -359,17 +398,20 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
             # elif dataformat == "pcd":
             #     pc = load_pc_from_pcd(velodynes)
 
-            if calib_path:
-                calib = read_calib_file(calibs)
-                proj_velo = proj_to_velo(calib)[:, :3]
+            # if calib_path:
+            #     calib = read_calib_file(calibs)
+            #     proj_velo = proj_to_velo(calib)[:, :3]
 
             if label_path:
                 places, rotates, size = read_labels(labels, label_type, calib_path=calib_path, is_velo_cam=is_velo_cam, proj_velo=proj_velo)
                 if places is None:
                     continue
 
+            # print ("places" + str(places.shape))
+            # print ("size" + str(size.shape))
             corners = get_boxcorners(places, rotates, size)
-            pc = filter_camera_angle(pc)
+            # print ("corners" + str(corners.shape))
+            # pc = filter_camera_angle(pc)
 
             voxel =  raw_to_voxel(pc, resolution=resolution, x=x, y=y, z=z)
             center_sphere, corner_label = create_label(places, size, corners, resolution=resolution, x=x, y=y, z=z, \
@@ -390,54 +432,64 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
 
 if __name__ == '__main__':
 #==========================================training
-    # pcd_path = "../data/training/velodyne/*.bin"
-    # label_path = "../data/training/label_2/*.txt"
-    # calib_path = "../data/training/calib/*.txt"
-    # train(5, pcd_path, label_path=label_path, resolution=0.1, calib_path=calib_path, dataformat="bin", is_velo_cam=True, \
-    #         scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
-    #
-    # pcd_path = "../data/training/velodyne/005000.bin"
-    # label_path = "../data/training/label_2/005000.txt"
-    # calib_path = "../data/training/calib/005000.txt"
-    # pcd_path = "../data/testing/velodyne/005000.bin"
-    # label_path = "../data/testing/label_2/005000.txt"
-    # calib_path = "../data/testing/calib/005000.txt"
-    # train_test(1, pcd_path, label_path=label_path, resolution=0.1, calib_path=calib_path, dataformat="bin", is_velo_cam=True, \
-    #         scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
+    isTraining = True
+    if isTraining:
+
+        base_path = "/home/xhpan/project/lidar_cnn/src"
+        bin_path = base_path + "/lidar_cnn/src/trainsets/bin_files/*.bin"
+        label_path = base_path + "/lidar_cnn/src/trainsets/label_file/*.txt"
+
+        # pcd_path = "../data/training/velodyne/*.bin"
+        # label_path = "../data/training/label_2/*.txt"
+        # calib_path = "../data/training/calib/*.txt"
+        train(5, bin_path, label_path=label_path, resolution=0.1, dataformat="bin", label_type="apollo", \
+                scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
+
+        # bin_path = base_path + "/lidar_cnn/src/testsets/bin_files/002_00000000.bin"
+        # label_path = base_path + "/lidar_cnn/src/testsets/label_file/002_00000000.bin.txt"
+        # train_test(1, bin_path, label_path=label_path, resolution=0.1, label_type="apollo", dataformat="bin", \
+        #         scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
 
 
 #==========================================test
-    # pcd_path = "/home/xhpan/rosbag/testing/velodyne/002397.bin"
-    # calib_path = "/home/xhpan/rosbag/testing/calib/002397.txt"
+    else:
+        # pcd_path = "/home/xhpan/rosbag/testing/velodyne/002397.bin"
+        # calib_path = "/home/xhpan/rosbag/testing/calib/002397.txt"
 
 
-    #pcd_path = "/home/xhpan/rosbag/testing/velodyne/*.bin"
-    #pcd_path = "/home/xhpan/rosbag/training/velodyne/*.bin"
-    # label_path = "/home/xhpan/rosbag/training/label_2/*.txt"
+        #pcd_path = "/home/xhpan/rosbag/testing/velodyne/*.bin"
+        #pcd_path = "/home/xhpan/rosbag/training/velodyne/*.bin"
+        # label_path = "/home/xhpan/rosbag/training/label_2/*.txt"
 
-    # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
-    # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
-    #
-    # velodynes_path = glob.glob(pcd_path)
-    # calibs_path = glob.glob(calib_path)
-    # velodynes_path.sort()
-    # calibs_path.sort()
-    #
-    # test(1, velodynes_path, label_path=None, resolution=0.1, calib_path=calibs_path, dataformat="bin", is_velo_cam=True, \
-    #      scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
+        # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
+        # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
+        #
+        # velodynes_path = glob.glob(pcd_path)
+        # calibs_path = glob.glob(calib_path)
+        # velodynes_path.sort()
+        # calibs_path.sort()
+        #
+        # test(1, velodynes_path, label_path=None, resolution=0.1, calib_path=calibs_path, dataformat="bin", is_velo_cam=True, \
+        #      scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))\
 
-    base_path = "/home/xhpan/project/lidar_cnn/src"
-    bin_path = base_path + "/lidar_cnn/src/trainsets/bin_one/*.bin"
-    label_path = base_path + "/lidar_cnn/src/trainsets/label_one/*.txt"
+        base_path = "/home/xhpan/project/lidar_cnn/src"
+        bin_path = base_path + "/lidar_cnn/src/trainsets/bin_files/*.bin"
+        label_path = base_path + "/lidar_cnn/src/trainsets/label_file/*.txt"
 
-    # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
-    # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
+        bin_path = base_path + "/lidar_cnn/src/testsets/bin_one/*.bin"
+        label_path = base_path + "/lidar_cnn/src/testsets/label_one/*.txt"
 
-    velodynes_path = glob.glob(bin_path)
-    velodynes_path.sort()
+        # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
+        # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
 
-    test(1, velodynes_path, label_path=None, resolution=0.1, dataformat="bin", is_velo_cam=True, \
-         scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
+        velodynes_path = glob.glob(bin_path)
+        velodynes_path.sort()
+        lab_path = glob.glob(label_path)
+        lab_path.sort()
+
+        test(1, velodynes_path, label_path=lab_path, resolution=0.1, dataformat="bin", label_type="apollo", is_velo_cam=True, \
+             scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))
+
 
 
 

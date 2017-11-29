@@ -62,13 +62,13 @@ def read_label_from_apollo(label_path):
             if (label[0] == "dontCare"):
                 continue
 
-            if label[0] == ("vehicle"):# or "cyclist" or "pedestrian"): #  or "Truck"
+            if label[0] == ("vehicle") and float(label[6]) < 10 and float(label[4]) < 10:# or "cyclist" or "pedestrian"): #  or "Truck"
                 bounding_box.append(label[1:8])
 
     if bounding_box:
         data = np.array(bounding_box, dtype=np.float32)
         size = data[:,3:6]
-        size [:,[0, 2]] = size[:,[2, 0]]#kiti:lwh apollo hwl
+        size [:,[0, 2]] = size[:,[2, 0]]#kitti:lwh apollo hwl
         return data[:, :3], size, data[:, 6]
     else:
         return None, None, None
@@ -152,7 +152,9 @@ def get_boxcorners(places, rotates, size):
         x, y, z = place
         h, w, l = sz
         if l > 10:
+            print sz
             continue
+
 
         corner = np.array([
             [x - l / 2., y - w / 2., z],
@@ -204,8 +206,8 @@ def publish_pc2(pc, obj):
         pass
 
 
-def publish_pc2_all(pc, obj):
-    print ("obj.shape:" + str(obj))
+def publish_pc2_all(pc, obj, center, label):
+    # print ("obj.shape:" + str(obj))
     if ENABLE_ROS:
         """Publisher of PointCloud data"""
         pub = rospy.Publisher("/points_raw", PointCloud2, queue_size=1000000)
@@ -220,8 +222,22 @@ def publish_pc2_all(pc, obj):
         header.stamp = rospy.Time.now()
         header.frame_id = "velodyne"
         points2 = pc2.create_cloud_xyz32(header, obj.reshape(-1, 3))
+
+
+        pub3 = rospy.Publisher("/points_raw2", PointCloud2, queue_size=1000000)
+        header = std_msgs.msg.Header()
+        header.stamp = rospy.Time.now()
+        header.frame_id = "velodyne"
+        points3 = pc2.create_cloud_xyz32(header, center[:, :3])
+
+        pub4 = rospy.Publisher("/points_raw3", PointCloud2, queue_size=1000000)
+        header = std_msgs.msg.Header()
+        header.stamp = rospy.Time.now()
+        header.frame_id = "velodyne"
+        points4 = pc2.create_cloud_xyz32(header, label[:, :3])
+
         #print ("points2.shape:" + str(points2))
-        pub3 = rospy.Publisher("/points_cube", MarkerArray, queue_size=1000000)
+        pub5 = rospy.Publisher("/points_cube", MarkerArray, queue_size=1000000)
         markerArray = MarkerArray()
         for index, pt in enumerate(obj):
             marker = Marker()
@@ -250,7 +266,9 @@ def publish_pc2_all(pc, obj):
         while not rospy.is_shutdown():
             pub.publish(points)
             pub2.publish(points2)
-            pub3.publish(markerArray)
+            pub3.publish(points3)
+            pub4.publish(points4)
+            pub5.publish(markerArray)
             r.sleep()
     else:
         pass
@@ -286,6 +304,16 @@ def voxel_to_corner(corner_vox, resolution, center):#TODO
     """Create 3D corner from voxel and the diff to corner"""
     corners = center + corner_vox
     return corners
+
+def similarBox(center1, center2):
+    if not isinstance(center1, np.ndarray):
+        print "error : similarBox -> center1 is not a np.ndarray!"
+    distance = np.sqrt(np.sum((center1 - center2)**2))
+    print "distance:" + str(distance)
+    if distance < 1.5:
+        return True# fix later
+    else:
+        return False
 
 def read_labels(label_path, label_type, calib_path=None, is_velo_cam=False, proj_velo=None):
     """Read labels from xml or txt file.
@@ -332,6 +360,7 @@ def read_labels(label_path, label_type, calib_path=None, is_velo_cam=False, proj
     return places, rotates, size
 
 def create_label(places, size, corners, resolution=0.50, x=(0, 90), y=(-50, 50), z=(-4.5, 5.5), scale=4, min_value=np.array([0., -50., -4.5])):
+
     """Create training Labels which satisfy the range of experiment"""
     x_logical = np.logical_and((places[:, 0] < x[1]), (places[:, 0] >= x[0]))
     y_logical = np.logical_and((places[:, 1] < y[1]), (places[:, 1] >= y[0]))
