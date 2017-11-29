@@ -274,10 +274,12 @@ def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resol
         # print pred_corners
 
 def accurateLog(labelCenter, testCenter):
+    global result_log
     log_path = "./logs"
     if not os.path.exists(log_path):
         os.makedirs(log_path)
     log_file = open(log_path + "/logaccurate.log", "a")
+    result_log_file = open(result_log, "a")
 
     match = 0
     for test in testCenter:
@@ -292,14 +294,18 @@ def accurateLog(labelCenter, testCenter):
     error = float(len(testCenter) - match) / len(testCenter)
     logtext = "accurate :%f(%d/%d), error:%f(%d/%d)\n" % (accurate, match, len(labelCenter),
                                                     error,len(testCenter) - match, len(testCenter))
-    print logtext
+
     log_file.write(logtext)
     log_file.close()
+    result_log_file.write(logtext)
+    result_log_file.close()
     # logging.info("accurate :%f(%d/%d), error:%f(%d/%d)" % (accurate, match, len(labelCenter),
     #                                                 error,len(testCenter) - match, len(testCenter)))
-
+last_model = "./models/model.100.ckpt"
+result_log = "./logs/test.log"
 def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=0.2, dataformat="pcd", label_type="txt", is_velo_cam=False, \
              scale=4, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5)):
+    global last_model
     batch_size = batch_num
     p = []
     pc = None
@@ -319,7 +325,6 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
         model, voxel, phase_train = ssd_model(sess, voxel_shape=voxel_shape, activation=tf.nn.relu, is_training=is_training)
         saver = tf.train.Saver()
         # new_saver = tf.train.import_meta_graph("velodyne_025_deconv_norm_valid40.ckpt.meta")
-        last_model = "./models/model.100.ckpt"
         # last_model = "./velodyne_025_deconv_norm_valid40.ckpt"
         saver.restore(sess, last_model)
         objectness = model.objectness
@@ -364,7 +369,7 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
             print "corners:" + str(corners)
             print "corners.shape:" + str(corners.shape)
             # publish_pc2(pc, corners.reshape(-1, 3))
-            publish_pc2_all(pc, corners, centers, places)#.reshape(-1, 3))
+            # publish_pc2_all(pc, corners, centers, places)#.reshape(-1, 3))
             # pred_corners = corners + pred_center
             # print pred_corners
 
@@ -432,17 +437,16 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
 
 if __name__ == '__main__':
 #==========================================training
-    isTraining = False
     base_path = None
     isTraining = True
     print ("argv:" + str(sys.argv))
     print ("python dir:" + os.path.abspath('.'))
     if len(sys.argv) > 1:
-	base_path = sys.argv[1]
+        base_path = sys.argv[1]
     if len(sys.argv) > 2:
-	isTraining = sys.argv[2]
-	if base_path is None:
-            base_path = "/home/xhpan/project/lidar_cnn/src/lidar_cnn/src/trainsets"
+        isTraining = sys.argv[2]
+    if base_path is None:
+        base_path = "/home/xhpan/project/lidar_cnn/src/lidar_cnn/src/trainsets"
         bin_path = base_path + "/bin_files/*.bin"
         label_path = base_path + "/label_file/*.txt"
 
@@ -460,8 +464,14 @@ if __name__ == '__main__':
 
 #==========================================test
     else:
-	if len(sys.argv) > 3:
-	    isTraining = sys.argv[3]
+        if len(sys.argv) > 3:
+            isTraining = sys.argv[3]
+        global last_model, result_log
+        if len(sys.argv) > 4:
+            last_model = sys.argv[4] + ".ckpt"
+        if len(sys.argv) > 5:
+            result_log = sys.argv[5]
+
         # pcd_path = "/home/xhpan/rosbag/testing/velodyne/002397.bin"
         # calib_path = "/home/xhpan/rosbag/testing/calib/002397.txt"
 
@@ -480,13 +490,12 @@ if __name__ == '__main__':
         #
         # test(1, velodynes_path, label_path=None, resolution=0.1, calib_path=calibs_path, dataformat="bin", is_velo_cam=True, \
         #      scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))\
-
-	if base_path is None:
+        if base_path is None:
             base_path = "/home/xhpan/project/lidar_cnn/src/lidar_cnn/src/testsets"
-        bin_path = base_path + "/bin_files/*.bin"
-        label_path = base_path + "/label_file/*.txt"
-        # bin_path = base_path + "/bin_one/*.bin"
-        # label_path = base_path + "/label_one/*.txt"
+        # bin_path = base_path + "/bin_files/*.bin"
+        # label_path = base_path + "/label_file/*.txt"
+        bin_path = base_path + "/bin_one/*.bin"
+        label_path = base_path + "/label_one/*.txt"
 
         # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
         # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
