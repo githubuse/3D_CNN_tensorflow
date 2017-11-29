@@ -431,13 +431,20 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
 
 
 if __name__ == '__main__':
-#==========================================training
+    base_path = None
     isTraining = True
+    print ("argv:" + str(sys.argv))
+    print ("python dir:" + os.path.abspath('.'))
+    if len(sys.argv) > 1:
+	base_path = sys.argv[1]
+    if len(sys.argv) > 2:
+	isTraining = sys.argv[2]
+#==========================================training
     if isTraining:
-
-        base_path = "/home/xhpan/project/lidar_cnn/src"
-        bin_path = base_path + "/lidar_cnn/src/trainsets/bin_files/*.bin"
-        label_path = base_path + "/lidar_cnn/src/trainsets/label_file/*.txt"
+	if base_path is None:
+            base_path = "/home/xhpan/project/lidar_cnn/src/lidar_cnn/src/trainsets"
+        bin_path = base_path + "/bin_files/*.bin"
+        label_path = base_path + "/label_file/*.txt"
 
         # pcd_path = "../data/training/velodyne/*.bin"
         # label_path = "../data/training/label_2/*.txt"
@@ -453,6 +460,8 @@ if __name__ == '__main__':
 
 #==========================================test
     else:
+	if len(sys.argv) > 3:
+	    isTraining = sys.argv[3]
         # pcd_path = "/home/xhpan/rosbag/testing/velodyne/002397.bin"
         # calib_path = "/home/xhpan/rosbag/testing/calib/002397.txt"
 
@@ -472,12 +481,13 @@ if __name__ == '__main__':
         # test(1, velodynes_path, label_path=None, resolution=0.1, calib_path=calibs_path, dataformat="bin", is_velo_cam=True, \
         #      scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))\
 
-        base_path = "/home/xhpan/project/lidar_cnn/src"
-        bin_path = base_path + "/lidar_cnn/src/trainsets/bin_files/*.bin"
-        label_path = base_path + "/lidar_cnn/src/trainsets/label_file/*.txt"
+	if base_path is None:
+            base_path = "/home/xhpan/project/lidar_cnn/src/lidar_cnn/src/testsets"
+        bin_path = base_path + "/bin_files/*.bin"
+        label_path = base_path + "/label_file/*.txt"
 
-        bin_path = base_path + "/lidar_cnn/src/testsets/bin_one/*.bin"
-        label_path = base_path + "/lidar_cnn/src/testsets/label_one/*.txt"
+        bin_path = base_path + "/bin_one/*.bin"
+        label_path = base_path + "/label_one/*.txt"
 
         # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
         # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
