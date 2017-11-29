@@ -245,6 +245,7 @@ def publish_pc2_all(pc, obj, center, label):
             marker.header.frame_id = "velodyne"
             marker.type = marker.CUBE
             marker.action = marker.ADD
+            marker.lifetime = rospy.Duration(0)
             pt_x = pt[:8,0]
             pt_y = pt[:8,1]
             pt_z = pt[:8,2]
@@ -259,9 +260,12 @@ def publish_pc2_all(pc, obj, center, label):
             marker.pose.position.z = pt_z.mean()
             markerArray.markers.append(marker)
 
+
         # pub.publish(points)
         # pub2.publish(points2)
-        # pub3.publish(markerArray)
+        # pub3.publish(points3)
+        # pub4.publish(points4)
+        # pub5.publish(markerArray)
         r = rospy.Rate(0.1)
         while not rospy.is_shutdown():
             pub.publish(points)

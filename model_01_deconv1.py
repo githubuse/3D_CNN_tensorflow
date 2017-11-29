@@ -320,7 +320,7 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
         saver = tf.train.Saver()
         # new_saver = tf.train.import_meta_graph("velodyne_025_deconv_norm_valid40.ckpt.meta")
         last_model = "./models/model.100.ckpt"
-        last_model = "./velodyne_025_deconv_norm_valid40.ckpt"
+        # last_model = "./velodyne_025_deconv_norm_valid40.ckpt"
         saver.restore(sess, last_model)
         objectness = model.objectness
         cordinate = model.cordinate
@@ -364,7 +364,7 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
             print "corners:" + str(corners)
             print "corners.shape:" + str(corners.shape)
             # publish_pc2(pc, corners.reshape(-1, 3))
-            # publish_pc2_all(pc, corners, centers, places)#.reshape(-1, 3))
+            publish_pc2_all(pc, corners, centers, places)#.reshape(-1, 3))
             # pred_corners = corners + pred_center
             # print pred_corners
 
@@ -432,7 +432,7 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
 
 if __name__ == '__main__':
 #==========================================training
-    isTraining = True
+    isTraining = False
     if isTraining:
 
         base_path = "/home/xhpan/project/lidar_cnn/src"
@@ -476,8 +476,8 @@ if __name__ == '__main__':
         bin_path = base_path + "/lidar_cnn/src/trainsets/bin_files/*.bin"
         label_path = base_path + "/lidar_cnn/src/trainsets/label_file/*.txt"
 
-        bin_path = base_path + "/lidar_cnn/src/testsets/bin_one/*.bin"
-        label_path = base_path + "/lidar_cnn/src/testsets/label_one/*.txt"
+        # bin_path = base_path + "/lidar_cnn/src/testsets/bin_one/*.bin"
+        # label_path = base_path + "/lidar_cnn/src/testsets/label_one/*.txt"
 
         # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
         # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"
