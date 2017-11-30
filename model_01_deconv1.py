@@ -7,7 +7,7 @@ import glob
 import logging
 import os
 
-last_model = "./models/model.100.ckpt"
+last_model = "./models/model.100"
 result_log = "./logs/test.log"
 
 def batch_norm(inputs, phase_train, decay=0.9, eps=1e-5):
@@ -191,13 +191,14 @@ def train(batch_num, velodyne_path, label_path=None, calib_path=None, resolution
                 print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(cc))
                 print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(iol))
                 print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(nol))
-            if (epoch != 0) and (epoch % 20 == 0):
+            if (epoch != 0) and (epoch % 10 == 0):
                 print "Save epoch " + str(epoch)
                 saver.save(sess, "./models/model." + str(epoch) + ".ckpt")
         print("Optimization Finished!")
 
 def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=0.2, dataformat="pcd", label_type="txt", is_velo_cam=False, \
              scale=4, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5)):
+    global last_model
     batch_size = batch_num
     p = []
     pc = None
@@ -236,7 +237,7 @@ def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resol
         model, voxel, phase_train = ssd_model(sess, voxel_shape=voxel_shape, activation=tf.nn.relu, is_training=is_training)
         saver = tf.train.Saver()
         # new_saver = tf.train.import_meta_graph("velodyne_025_deconv_norm_valid40.ckpt.meta")
-        last_model = "./models/model.100.ckpt"
+        last_model +=".ckpt"
         saver.restore(sess, last_model)
 
         objectness = model.objectness
@@ -277,6 +278,7 @@ def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resol
         # print pred_corners
 
 def accurateLog(labelCenter, testCenter):
+    global result_log
     log_path = "./logs"
     if not os.path.exists(log_path):
         os.makedirs(log_path)
@@ -296,7 +298,7 @@ def accurateLog(labelCenter, testCenter):
     error = float(len(testCenter) - match) / len(testCenter)
     logtext = "accurate :%f(%d/%d), error:%f(%d/%d)\n" % (accurate, match, len(labelCenter),
                                                     error,len(testCenter) - match, len(testCenter))
-
+    print ("accurate:" + logtext)
     log_file.write(logtext)
     log_file.close()
     result_log_file.write(logtext)
@@ -306,6 +308,7 @@ def accurateLog(labelCenter, testCenter):
 
 def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=0.2, dataformat="pcd", label_type="txt", is_velo_cam=False, \
              scale=4, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5)):
+    global last_model
     batch_size = batch_num
     p = []
     pc = None
@@ -317,15 +320,14 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
 
     # logging.basicConfig(filename='./logs/logaccurate.log', level=logging.DEBUG)
     label_corners = None
-
     with tf.Session() as sess:
         is_training=None
-
 
         model, voxel, phase_train = ssd_model(sess, voxel_shape=voxel_shape, activation=tf.nn.relu, is_training=is_training)
         saver = tf.train.Saver()
         # new_saver = tf.train.import_meta_graph("velodyne_025_deconv_norm_valid40.ckpt.meta")
         # last_model = "./velodyne_025_deconv_norm_valid40.ckpt"
+        last_model+=".ckpt"
         saver.restore(sess, last_model)
         objectness = model.objectness
         cordinate = model.cordinate
@@ -359,14 +361,14 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
             print "index:" + str(index)
             centers = np.vstack((index[0], np.vstack((index[1], index[2])))).transpose()
             print "centers.shape:" + str(centers.shape)
-            print "centers1:" + str(centers)
+            #print "centers1:" + str(centers)
             centers = sphere_to_center(centers, resolution=resolution, \
                 scale=scale, min_value=np.array([x[0], y[0], z[0]]))
-
+            print "places:" + str(places.shape)
             accurateLog(places, centers)
             print "centers2:" + str(centers)
             corners = cordinate1[index].reshape(-1, 8, 3) + centers[:, np.newaxis]
-            print "corners:" + str(corners)
+            #print "corners:" + str(corners)
             print "corners.shape:" + str(corners.shape)
             # publish_pc2(pc, corners.reshape(-1, 3))
             # publish_pc2_all(pc, corners, centers, places)#.reshape(-1, 3))
@@ -442,11 +444,12 @@ if __name__ == '__main__':
     print ("argv:" + str(sys.argv))
     print ("python dir:" + os.path.abspath('.'))
     if len(sys.argv) > 1:
-        base_path = sys.argv[1]
+        isTraining = sys.argv[1] == "True"
     if len(sys.argv) > 2:
-        isTraining = sys.argv[2]
-    if base_path is None:
-        base_path = "/home/xhpan/project/lidar_cnn/src/lidar_cnn/src/trainsets"
+        base_path = sys.argv[2]
+    if isTraining:
+        if base_path is None:
+            base_path = "/home/xhpan/project/lidar_cnn/src/lidar_cnn/src/trainsets"
         bin_path = base_path + "/bin_files/*.bin"
         label_path = base_path + "/label_file/*.txt"
 
@@ -465,11 +468,9 @@ if __name__ == '__main__':
 #==========================================test
     else:
         if len(sys.argv) > 3:
-            isTraining = sys.argv[3]
+            last_model = sys.argv[3]
         if len(sys.argv) > 4:
-            last_model = sys.argv[4] + ".ckpt"
-        if len(sys.argv) > 5:
-            result_log = sys.argv[5]
+            result_log = sys.argv[4]
 
         # pcd_path = "/home/xhpan/rosbag/testing/velodyne/002397.bin"
         # calib_path = "/home/xhpan/rosbag/testing/calib/002397.txt"
@@ -491,10 +492,10 @@ if __name__ == '__main__':
         #      scale=8, voxel_shape=(800, 800, 40), x=(0, 80), y=(-40, 40), z=(-2.5, 1.5))\
         if base_path is None:
             base_path = "/home/xhpan/project/lidar_cnn/src/lidar_cnn/src/testsets"
-        # bin_path = base_path + "/bin_files/*.bin"
-        # label_path = base_path + "/label_file/*.txt"
-        bin_path = base_path + "/bin_one/*.bin"
-        label_path = base_path + "/label_one/*.txt"
+        bin_path = base_path + "/bin_files/*.bin"
+        label_path = base_path + "/label_file/*.txt"
+        #bin_path = base_path + "/bin_one/*.bin"
+        #label_path = base_path + "/label_one/*.txt"
 
         # pcd_path = "/home/xhpan/rosbag/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/*.bin"
         # calib_path = "/home/xhpan/rosbag/training/calib/*.txt"

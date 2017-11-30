@@ -8,7 +8,7 @@ import glob
 import math
 from parse_xml import parseXML
 
-ENABLE_ROS = True
+ENABLE_ROS = False
 
 if ENABLE_ROS:
     import rospy
@@ -313,7 +313,7 @@ def similarBox(center1, center2):
     if not isinstance(center1, np.ndarray):
         print "error : similarBox -> center1 is not a np.ndarray!"
     distance = np.sqrt(np.sum((center1 - center2)**2))
-    print "distance:" + str(distance)
+    #print "distance:" + str(distance)
     if distance < 1.5:
         return True# fix later
     else:
