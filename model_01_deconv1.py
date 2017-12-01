@@ -6,6 +6,7 @@ from input_velodyne import *
 import glob
 import logging
 import os
+from scipy.cluster.hierarchy import fclusterdata
 
 last_model = "./models/model.100"
 result_log = "./logs/test.log"
@@ -222,7 +223,7 @@ def train_test(batch_num, velodyne_path, label_path=None, calib_path=None, resol
 
     corners = get_boxcorners(places, rotates, size)
     # filter_car_data(corners)
-    # pc = filter_camera_angle(pc)
+    pc = filter_camera_angle(pc)
 
     voxel =  raw_to_voxel(pc, resolution=resolution, x=x, y=y, z=z)
     center_sphere = center_to_sphere(places, size, resolution=resolution)
@@ -346,7 +347,7 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
                 pc = load_pc_from_bin(velodynes_path[index])
             # elif dataformat == "pcd":
             #     pc = load_pc_from_pcd(velodyne_path)
-            #pc = filter_camera_angle(pc)
+            pc = filter_camera_angle(pc)
             voxel1 = raw_to_voxel(pc, resolution=resolution, x=x, y=y, z=z)
             voxel_x = voxel1.reshape(1, voxel1.shape[0], voxel1.shape[1], voxel1.shape[2], 1)
             print voxel1.shape, voxel_x.shape
@@ -366,14 +367,40 @@ def test(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=
                 scale=scale, min_value=np.array([x[0], y[0], z[0]]))
             print "places:" + str(places.shape)
             accurateLog(places, centers)
-            print "centers2:" + str(centers)
-            corners = cordinate1[index].reshape(-1, 8, 3) + centers[:, np.newaxis]
+            print "centers.shape:" + str(centers.shape)
+            relativeCor = cordinate1[index].reshape(-1, 8, 3)
+            corners, centers = car_filter(relativeCor, centers)
+            corners = relativeCor + centers[:, np.newaxis]
             #print "corners:" + str(corners)
             print "corners.shape:" + str(corners.shape)
+            corners, centers = cluster_corners(corners, centers)
+            print "corners.shape:" + str(corners.shape) + " centers.shape:" + str(centers.shape)
             # publish_pc2(pc, corners.reshape(-1, 3))
             # publish_pc2_all(pc, corners, centers, places)#.reshape(-1, 3))
             # pred_corners = corners + pred_center
             # print pred_corners
+
+def car_filter(corners, centers):
+    print "before car filter: len(corners):" + len(corners)
+    filter_index = corners[:, 1, 0] - corners[:, 0, 0] > 1.0 and corners[:, 1, 0] - corners[:, 0, 0] < 3.0 \
+                and corners[:, 2, 0] - corners[:, 0, 0] > 1.0 and corners[:, 2, 0] - corners[:, 0, 0] < 3.0 \
+                and corners[:, 3, 2] - corners[:, 0, 2] > 0.5 and corners[:, 3, 2] - corners[:, 0, 2] < 2
+
+    print "after car filter: len(corners):" + len(filter_index)
+    return corners[filter_index], centers[filter_index]
+
+
+def cluster_corners(corners, centers):
+    newcorner = []
+    newcenter = []
+    fclust = fclusterdata(centers, 1.5, criterion='distance')
+    unique, counts = np.unique(fclust, return_counts=True)
+    clusterNum = len(unique)
+    for index in range(0, clusterNum):
+        cluster_index = fclust[:] == index
+        newcorner.append(np.sum(corners[cluster_index], 0) / len(corners[cluster_index]))
+        newcenter.append(np.sum(centers[cluster_index], 0) / len(centers[cluster_index]))
+    return np.array(newcorner), np.array(newcenter)
 
 def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, resolution=0.2, dataformat="pcd", label_type="txt", is_velo_cam=False, \
                         scale=4, x=(0, 80), y=(-40, 40), z=(-2.5, 1.5)):
@@ -418,7 +445,7 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
             # print ("size" + str(size.shape))
             corners = get_boxcorners(places, rotates, size, label_type)
             # print ("corners" + str(corners.shape))
-            # pc = filter_camera_angle(pc)
+            pc = filter_camera_angle(pc)
 
             voxel =  raw_to_voxel(pc, resolution=resolution, x=x, y=y, z=z)
             center_sphere, corner_label = create_label(places, size, corners, resolution=resolution, x=x, y=y, z=z, \
