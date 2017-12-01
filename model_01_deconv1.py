@@ -416,7 +416,7 @@ def lidar_generator(batch_num, velodyne_path, label_path=None, calib_path=None, 
 
             # print ("places" + str(places.shape))
             # print ("size" + str(size.shape))
-            corners = get_boxcorners(places, rotates, size)
+            corners = get_boxcorners(places, rotates, size, label_type)
             # print ("corners" + str(corners.shape))
             # pc = filter_camera_angle(pc)
 

@@ -145,17 +145,28 @@ def create_publish_obj(obj, places, rotates, size):
                     obj.append((a, b, c))
     return obj
 
-def get_boxcorners(places, rotates, size):
+def get_boxcorners(places, rotates, size, label_type = "txt"):
     """Create 8 corners of bounding box from bottom center."""
     corners = []
     for place, rotate, sz in zip(places, rotates, size):
         x, y, z = place
         h, w, l = sz
         if l > 10:
-            print sz
+            print "size from label is too big: " + str(sz)
             continue
 
-
+        # if label_type == "apollo":#FIXME
+        #     corner = np.array([
+        #         [x - l / 2., y - w / 2., z],
+        #         [x + l / 2., y - w / 2., z],
+        #         [x - l / 2., y + w / 2., z],
+        #         [x - l / 2., y - w / 2., z + h/2.],
+        #         [x - l / 2., y + w / 2., z + h/2.],
+        #         [x + l / 2., y + w / 2., z],
+        #         [x + l / 2., y - w / 2., z + h/2.],
+        #         [x + l / 2., y + w / 2., z + h/2.],
+        #     ])
+        # else:
         corner = np.array([
             [x - l / 2., y - w / 2., z],
             [x + l / 2., y - w / 2., z],
@@ -344,7 +355,7 @@ def read_labels(label_path, label_type, calib_path=None, is_velo_cam=False, proj
 
         if places is None:
             return None, None, None
-        places[:,2] -= 0.6# vehicle coordinate - Z
+        places[:,2] -= 0.6# vehicle coordinate - Z #FIXME
         # rotates = np.pi / 2 - rotates
         rotates = rotates
         # dummy = np.zeros_like(places)
